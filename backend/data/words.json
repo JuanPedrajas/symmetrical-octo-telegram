@@ -1,0 +1,12 @@
+[
+  { "text": "think",   "ipa": ["θ", "ɪ", "ŋ", "k"] },
+  { "text": "the",     "ipa": ["ð", "ə"] },
+  { "text": "three",   "ipa": ["θ", "r", "iː"] },
+  { "text": "this",    "ipa": ["ð", "ɪ", "s"] },
+  { "text": "bath",    "ipa": ["b", "æ", "θ"] },
+  { "text": "breathe", "ipa": ["b", "r", "iː", "ð"] },
+  { "text": "mother",  "ipa": ["m", "ʌ", "ð", "ɚ"] },
+  { "text": "thought",  "ipa": ["θ", "ɔː", "t"] },
+  { "text": "south",   "ipa": ["s", "aʊ", "θ"] },
+  { "text": "weather", "ipa": ["w", "ɛ", "ð", "ɚ"] }
+]
