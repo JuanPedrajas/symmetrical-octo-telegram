@@ -8,9 +8,9 @@ applyTo: "backend/**"
 
 - Python 3.12+
 - FastAPI
-- SQLAlchemy 2.0 (async)
+- GitPython (Git repository as the database)
+- `gherkin-official` (Gherkin parser)
 - Pydantic v2 for request/response models
-- SQLite database (via aiosqlite)
 - Poetry for dependency management
 
 ## Project Structure
@@ -19,59 +19,60 @@ applyTo: "backend/**"
 app/
 ├── api/
 │   └── v1/
-│       └── items.py          # GET/POST/DELETE /api/v1/items
-├── models/
-│   ├── base.py               # DeclarativeBase for all models
-│   └── item.py               # Item ORM model (id, name, description)
+│       └── features.py       # GET /tree, GET /detail, POST /save
 ├── schemas/
-│   └── item.py               # ItemCreate, ItemUpdate, ItemResponse
+│   └── feature.py            # FeatureDetail, SaveRequest, TreeResponse
 ├── services/
-│   └── item_service.py       # Async CRUD (get_all, get_by_id, create, delete)
+│   └── git_service.py        # get_repo_tree(), commit_file(path, content, author)
+├── utils/
+│   └── gherkin_parser.py     # parse(text) → JSON, compile(json) → .feature text
 ├── core/
-│   ├── config.py             # Settings via pydantic-settings (env prefix: APP_)
-│   └── database.py           # Async engine + session factory
-└── main.py                   # FastAPI app with CORS + lifespan (DB init)
+│   ├── config.py             # Settings (REPO_PATH, GIT_REMOTE_URL) via pydantic-settings
+│   └── database.py           # (retained from template; unused by Gherkin feature)
+└── main.py                   # FastAPI app with CORS + lifespan
 tests/
-├── conftest.py               # In-memory SQLite fixtures (db_session, async_client)
-└── test_items_router.py      # 5 CRUD tests via HTTP
+├── conftest.py               # Shared fixtures (async_client, tmp repo)
+├── test_git_service.py       # Unit tests for git_service (mocked filesystem)
+├── test_gherkin_utils.py     # Unit tests for parser and compiler
+└── test_features_router.py   # Integration tests for /api/v1/features/*
 ```
 
 ## Architecture Rules
 
+- **Git is the database.** There is no ORM or SQL for feature files. `git_service.py` owns all filesystem and Git operations.
 - **One router per domain.** Each domain gets its own file under `api/v1/`.
-- **Three-layer architecture:** Router -> Service -> Model. Routers validate input and call services. Services contain business logic and call the ORM. Never do ORM queries directly in router functions.
-- **All route handlers are `async def`.** Use async natively with aiosqlite.
-- **Dependency injection via `Depends()`.** Use `Annotated[type, Depends(...)]` for type-safe injection. See `DbSession` in routers.
-- **Pydantic models are the contract.** API consumers see Pydantic schemas, never SQLAlchemy models. Map with `model_validate()`.
+- **Three-layer architecture:** Router → Service → Git/Utils. Routers validate input and call services. Services call `git_service` or `gherkin_parser`. Never touch the filesystem or Git directly in routers.
+- **All route handlers are `async def`.**
+- **Dependency injection via `Depends()`.** Use `Annotated[type, Depends(...)]` for type-safe injection.
+- **Pydantic models are the contract.** API consumers see Pydantic schemas, never raw dicts.
 
-## Adding a New Domain
+## Adding a New Endpoint
 
-1. Create the ORM model in `app/models/your_model.py`
-2. Create Pydantic schemas in `app/schemas/your_model.py` (`Create`, `Update`, `Response`)
-3. Create service functions in `app/services/your_service.py` (async CRUD)
-4. Create router in `app/api/v1/your_router.py` with endpoints
-5. Register the router in `main.py` (`app.include_router(...)`)
-6. Import the model in `main.py` so tables are created at startup
-7. Add tests in `tests/test_your_router.py`
+1. Add Pydantic schemas in `app/schemas/your_schema.py` (`Request`, `Response`)
+2. Add service functions in `app/services/your_service.py`
+3. Create router in `app/api/v1/your_router.py`
+4. Register the router in `main.py` (`app.include_router(...)`)
+5. Add TDD tests in `tests/test_your_router.py` (Red → Green)
 
 ## Coding Conventions
 
-- Pydantic schema naming: `{Entity}Create`, `{Entity}Update`, `{Entity}Response`.
-- Route function naming: verb first, noun second (`get_item`, `create_item`, `list_items`).
+- Pydantic schema naming: `{Entity}Request`, `{Entity}Response`.
+- Route function naming: verb first, noun second (`get_tree`, `get_detail`, `save_feature`).
 - Error responses: raise `HTTPException` with specific status codes and detail messages.
-- Environment config: use `pydantic-settings` with `Settings` class. Access via `get_settings()`. Never use `os.getenv()`.
+- Environment config: use `pydantic-settings` with `Settings` class and `APP_` prefix. Access via `get_settings()`. Never use `os.getenv()`.
+- Gherkin tagging convention: always enforce `@entry:` and `@usecase:` tags in the compiler output.
 
 ## Testing
 
 - Framework: `pytest` + `pytest-asyncio` (auto mode)
 - HTTP client: `httpx.AsyncClient` with `ASGITransport`
-- Database: in-memory SQLite per test via `conftest.py` fixtures
+- Git operations: mock the filesystem with `tmp_path` or `unittest.mock`; do not rely on a real remote
 - Test files mirror the modules they test
 - Run tests: `make test`
 
 ## NEVER DO THIS
 
-1. **Never do ORM queries in routers.** Routers call services, services call the ORM.
-2. **Never return SQLAlchemy models from endpoints.** Always map to a Pydantic Response schema.
-3. **Never hardcode connection strings or secrets.** Use environment variables via `pydantic-settings`.
-4. **Never use synchronous database drivers in async code.**
+1. **Never do filesystem or Git operations in routers.** Routers call services, services call `git_service`.
+2. **Never return raw dicts from endpoints.** Always map to a Pydantic Response schema.
+3. **Never hardcode paths or remote URLs.** Use environment variables via `pydantic-settings`.
+4. **Never push to the remote inside a unit test.** Mock `git push` calls.

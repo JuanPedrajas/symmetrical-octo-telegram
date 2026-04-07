@@ -16,26 +16,31 @@ applyTo: "frontend/**"
 ```
 src/
 ├── pages/
-│   └── HomePage.tsx          # Landing page with item list
+│   ├── HomePage.tsx              # File tree browser
+│   └── EditorPage.tsx            # Kitchen Sink structured editor
 ├── components/
-│   └── ui/
-│       └── Button.tsx        # Reusable button component
+│   ├── ui/
+│   │   └── Button.tsx            # Reusable button component
+│   └── features/
+│       └── FileTree/
+│           └── FileTree.tsx      # Recursive folder/file tree from /api/v1/features/tree
 ├── services/
-│   ├── api.ts                # Base fetch client — all HTTP calls go here
-│   └── itemApi.ts            # GET /items (useItems hook)
+│   ├── api.ts                    # Base fetch client — all HTTP calls go here
+│   └── featureApi.ts             # useFeatureTree, useFeatureDetail, useSaveFeature
 ├── types/
-│   └── index.ts              # ItemResponse type
+│   └── index.ts                  # TreeNode, FeatureDetail, ScenarioStep, etc.
 ├── lib/
-│   └── utils.ts              # cn() — conditional class helper
-├── App.tsx                   # Router setup, QueryClientProvider
-├── main.tsx                  # React root + StrictMode
-└── index.css                 # Tailwind directives
+│   └── utils.ts                  # cn() — conditional class helper
+├── App.tsx                       # Router setup, QueryClientProvider
+├── main.tsx                      # React root + StrictMode
+└── index.css                     # Tailwind directives
 ```
 
 ## Architecture Rules
 
 - **API layer is the boundary.** All HTTP calls go through `services/api.ts`. Never use `fetch` directly in components.
-- **Server state via React Query.** Use `useQuery` for reads, `useMutation` for writes. Invalidate related queries on success.
+- **Server state via React Query.** Use `useQuery` for reads (`tree`, `detail`), `useMutation` for writes (`save`). Invalidate the tree query on successful save.
+- **Last-Write-Wins save strategy.** On save, send the entire form state as JSON to `POST /api/v1/features/save`. No partial updates.
 - **Path alias:** `@` maps to `./src` (configured in `vite.config.ts` and `tsconfig`).
 - **API base URL:** Set via `VITE_API_URL` env var (defaults to `http://localhost:8000`).
 
@@ -51,8 +56,10 @@ src/
 
 ## Coding Conventions
 
-- Pages are named exports (`export function HomePage()`).
+- Pages are named exports (`export function EditorPage()`).
 - Components are in `components/features/` (feature-specific) or `components/ui/` (generic).
 - Types live in `types/` and mirror backend Pydantic schemas.
 - API services are thin wrappers: one function per endpoint, typed return values.
 - Tailwind classes directly in JSX. Use `cn()` for conditional classes.
+- The Kitchen Sink editor form is split into three sections: **Header** (Feature name, description, `@entry`/`@usecase` tags), **Background** (dynamic Given/And step list), and **Scenarios** (array of Scenario cards with Given/When/Then steps).
+- `@entry` and `@usecase` tags are required; the form must default them and prevent saving without them.

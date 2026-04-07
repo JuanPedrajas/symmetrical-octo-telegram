@@ -1,19 +1,19 @@
-# Full-Stack App Template
+# Gherkins Bridge
 
 ## What This Repo Does
 
-A full-stack CRUD application template with a FastAPI backend and a React frontend, deployed via Docker Compose.
+A full-stack Gherkin feature-file editor that uses a Git repository as its database. Users can browse a file tree of `.feature` files, edit them through a structured "Kitchen Sink" form, and save changes back to the repo via automated Git commits. The backend parses Gherkin text into structured JSON and compiles it back, bridging a PM-friendly UI with a version-controlled source of truth.
 
 ## Tech Stack
 
-| Layer    | Technology                                   |
-|----------|----------------------------------------------|
-| Backend  | Python 3.12+, FastAPI, SQLAlchemy 2 (async)  |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4   |
-| Database | SQLite (async via aiosqlite)                  |
-| State    | TanStack React Query 5                        |
-| Routing  | React Router 7                                |
-| Tooling  | Docker Compose, Poetry, npm                   |
+| Layer      | Technology                                                        |
+|------------|-------------------------------------------------------------------|
+| Backend    | Python 3.12+, FastAPI, GitPython, gherkin-official                |
+| Frontend   | React 19, TypeScript, Vite, Tailwind CSS 4                        |
+| Git Store  | Git repository mounted as a volume (`REPO_PATH`)                  |
+| State      | TanStack React Query 5                                            |
+| Routing    | React Router 7                                                    |
+| Tooling    | Docker Compose, Poetry, npm                                       |
 
 ## Build / Run / Test Commands
 
@@ -28,36 +28,36 @@ make test      # Run pytest inside container
 
 ## Environment Variables
 
-| Variable           | Default                          | Description          |
-|--------------------|----------------------------------|----------------------|
-| `APP_DATABASE_URL` | `sqlite+aiosqlite:///./app.db`   | Database URL         |
-| `VITE_API_URL`     | `http://localhost:8000`          | Backend API URL      |
+| Variable            | Default                  | Description                              |
+|---------------------|--------------------------|------------------------------------------|
+| `APP_REPO_PATH`     | `/repo`                  | Path to the mounted gherkins Git repo    |
+| `APP_GIT_REMOTE_URL`| —                        | Remote URL for `git push`                |
+| `VITE_API_URL`      | `http://localhost:8000`  | Backend API URL                          |
 
 ## Architecture Overview
 
-**Backend** — three-layer architecture:
+**Backend** — three-layer architecture where **Git is the database**:
 - **Router** (`app/api/v1/`) — HTTP endpoints, input validation
-- **Service** (`app/services/`) — business logic, database queries
-- **Model** (`app/models/`) — SQLAlchemy ORM definitions
+- **Service** (`app/services/`) — business logic; `git_service.py` reads/writes the repo
+- **Utils** (`app/utils/`) — `gherkin_parser.py` parses `.feature` text → JSON and compiles JSON → `.feature` text
 
 **Frontend** — separation of concerns:
-- **Pages** (`src/pages/`) — route-level components
+- **Pages** (`src/pages/`) — route-level components (e.g., `EditorPage`)
+- **Components** (`src/components/features/`) — feature-specific UI (e.g., `FileTree`, Kitchen Sink form sections)
 - **Services** (`src/services/`) — API calls via `apiFetch` + React Query hooks
-- **Types** (`src/types/`) — TypeScript interfaces mirroring backend schemas
+- **Types** (`src/types/`) — TypeScript interfaces mirroring backend Pydantic schemas
 
 ## Adding a New Feature (End-to-End)
 
 ### Backend
-1. Create ORM model in `backend/app/models/`
-2. Create Pydantic schemas in `backend/app/schemas/` (`Create`, `Update`, `Response`)
-3. Create async service functions in `backend/app/services/`
-4. Create router with endpoints in `backend/app/api/v1/`
-5. Register router in `backend/app/main.py`
-6. Import the model in `main.py` so tables are created at startup
-7. Add tests in `backend/tests/`
+1. Add Pydantic schemas in `backend/app/schemas/` (`Request`, `Response`)
+2. Add service functions in `backend/app/services/` (interact with `git_service` or `gherkin_parser`)
+3. Create router with endpoints in `backend/app/api/v1/`
+4. Register router in `backend/app/main.py`
+5. Add tests in `backend/tests/` (TDD: Red → Green)
 
 ### Frontend
 1. Add TypeScript types in `frontend/src/types/index.ts`
 2. Create API service + React Query hooks in `frontend/src/services/`
-3. Create page component in `frontend/src/pages/`
+3. Create page or feature component in `frontend/src/pages/` or `frontend/src/components/features/`
 4. Add route in `frontend/src/App.tsx`
