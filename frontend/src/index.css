@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0f0f0f;
+  --color-bg-surface: #1a1a1a;
+  --color-bg-elevated: #242424;
+  --color-border: #2e2e2e;
+}
+
+@layer base {
+  body {
+    background-color: #0f0f0f;
+    color: #f4f4f5;
+  }
+}
