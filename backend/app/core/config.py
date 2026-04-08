@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./app.db"
+    repo_path: str = "/repo"
+    git_remote_url: str = ""
 
     model_config = SettingsConfigDict(env_prefix="APP_")
 
