@@ -2,12 +2,25 @@
 
 The Git repository is the database for `.feature` files.
 """
+import logging
 import os
+import re
 from pathlib import Path
 
 from git import Repo
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+def _authenticated_url(url: str, token: str) -> str:
+    """Inject a PAT into an HTTPS GitHub URL for authentication."""
+    return re.sub(
+        r"https://github\.com/",
+        f"https://x-access-token:{token}@github.com/",
+        url,
+    )
 
 
 def get_repo_tree() -> dict:
@@ -28,15 +41,21 @@ def get_repo_tree() -> dict:
             }
         }
     """
+
     settings = get_settings()
     root = Path(settings.repo_path)
 
     if settings.git_remote_url and root.exists():
         try:
             repo = Repo(str(root))
-            repo.remote("origin").pull()
-        except Exception:
-            pass
+            if settings.git_token:
+                url = _authenticated_url(settings.git_remote_url, settings.git_token)
+                repo.git.pull(url)
+            else:
+                repo.remote("origin").pull()
+        except Exception as e:
+            logger.error(e)
+            logger.warning("Pull failed — continuing with local tree")
 
     tree: dict = {}
 
@@ -77,5 +96,12 @@ def commit_file(relative_path: str, content: str, author: str) -> None:
     repo.index.commit(f"Updated by {author}")
 
     if settings.git_remote_url:
-        remote = repo.remote("origin")
-        remote.push()
+        try:
+            if settings.git_token:
+                url = _authenticated_url(settings.git_remote_url, settings.git_token)
+                repo.git.push(url)
+            else:
+                repo.remote("origin").push()
+        except Exception as e:
+            logger.error(e)
+            logger.warning("Push to remote failed — local commit preserved")

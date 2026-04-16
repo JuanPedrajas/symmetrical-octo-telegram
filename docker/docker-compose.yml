@@ -10,7 +10,9 @@ services:
       - ../backend:/app/backend # Mount backend for live reloading
       - ../frontend:/app/frontend # Mount frontend for live reloading
       - /app/frontend/node_modules # Exclude node_modules from host mount
+    env_file: .env
     environment:
       # Add any necessary environment variables for the application
       PYTHONUNBUFFERED: 1
       VITE_API_URL: http://localhost:8000 # Frontend will use this to connect to backend
+      APP_GIT_TOKEN: ${APP_GIT_TOKEN}
